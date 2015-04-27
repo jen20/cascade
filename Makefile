@@ -11,8 +11,8 @@ clean:
 
 cascade: clean
 	go get github.com/jwaldrip/odin/cli
-  go get github.com/hashicorp/consul/api
-  go build
+	go get github.com/hashicorp/consul/api
+	go build
 
 deb: cascade
 	chmod 700 cascade
