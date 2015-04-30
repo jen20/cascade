@@ -116,7 +116,11 @@ func cmRoll(c cli.Command) {
       os.Exit(1)
     }
     
-    fmt.Println("user:", string(pair.Value[:]), "has the lock")
+    if pair != nil {
+      fmt.Println("user:", string(pair.Value[:]), "has the lock")
+    } else {
+      fmt.Println("err: possibly a stale lock, try again shortly")
+    }
     
     os.Exit(1)
   }
