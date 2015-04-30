@@ -96,7 +96,13 @@ func cmRoll(c cli.Command) {
   defer session.Destroy(session_id, nil)
 
   key := "cascade/roll"
-  value := []byte(os.Getenv("USER"))
+  user := os.Getenv("USER")
+
+  if user == "root" && os.Getenv("SUDO_USER") != "" {
+    user = os.Getenv("SUDO_USER")
+  }
+
+  value := []byte(user)
   p := &api.KVPair{Key: key, Value: value, Session: session_id}
   if work, _, err := kv.Acquire(p, nil); err != nil {
     fmt.Println("err: ", err)
