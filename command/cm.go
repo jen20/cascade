@@ -113,10 +113,12 @@ func cmRoll(c cli.Command) {
     pair, _, err := kv.Get(key, nil)
     if err != nil {
       fmt.Println("err: ", err)
+      os.Exit(1)
     }
 
-    fmt.Println("user:", string(pair.Value[:]), "has the lock")
-
+    if pair.Value != nil {
+      fmt.Println("user:", string(pair.Value[:]), "has the lock")
+    }
     os.Exit(1)
   }
 
