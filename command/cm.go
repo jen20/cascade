@@ -116,9 +116,8 @@ func cmRoll(c cli.Command) {
       os.Exit(1)
     }
     
-    if pair != nil {
-      fmt.Println("user:", string(pair.Value[:]), "has the lock")
-    }
+    fmt.Println("user:", string(pair.Value[:]), "has the lock")
+    
     os.Exit(1)
   }
 
