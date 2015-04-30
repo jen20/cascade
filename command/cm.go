@@ -4,6 +4,7 @@ import (
   "fmt"
   "encoding/json"
   "os"
+  "os/signal"
   "time"
 
   "github.com/jwaldrip/odin/cli"
@@ -71,18 +72,62 @@ func cmLocal(c cli.Command) {
 func cmRoll(c cli.Command) {
   client, _ := api.NewClient(api.DefaultConfig())
   catalog := client.Catalog()
+  session := client.Session()
+  kv := client.KV()
 
-  nodes, meta, err := catalog.Service("cascade", c.Flag("role").String(), nil)
+  nodes, _, err := catalog.Service("cascade", c.Flag("role").String(), nil)
 
   if err != nil {
     fmt.Println("err: ", err)
     os.Exit(1)
   }
 
-  if meta.LastIndex == 0 {
-    fmt.Println("Bad: ", meta)
+  se := &api.SessionEntry{
+    Name: "cascade",
+    TTL: "250s",
+    Behavior: api.SessionBehaviorDelete,
+  }
+
+  session_id, _, err := session.Create(se, nil)
+  if err != nil {
+    fmt.Println("err: ", err)
     os.Exit(1)
   }
+  defer session.Destroy(session_id, nil)
+
+  key := "cascade/roll"
+  value := []byte(os.Getenv("USER"))
+  p := &api.KVPair{Key: key, Value: value, Session: session_id}
+  if work, _, err := kv.Acquire(p, nil); err != nil {
+    fmt.Println("err: ", err)
+    os.Exit(1)
+  } else if !work {
+    fmt.Println("Failed to acquire roll lock")
+    
+    pair, _, err := kv.Get(key, nil)
+    if err != nil {
+      fmt.Println("err: ", err)
+    }
+
+    fmt.Println("user:", string(pair.Value[:]), "has the lock")
+
+    os.Exit(1)
+  }
+
+  ch := make(chan os.Signal, 1)
+  signal.Notify(ch, os.Interrupt)
+  go func(){
+    for range ch {
+      if work, _, err := kv.Release(p, nil); err != nil {
+        fmt.Println("err: ", err)
+        os.Exit(1)
+      } else if !work {
+        fmt.Println("failed to release lock")
+        os.Exit(1)
+      }
+      os.Exit(0)
+    }
+  }()
 
   fmt.Printf("Rolling (%v) nodes..\n", len(nodes))
   for _,node := range nodes {
@@ -90,6 +135,16 @@ func cmRoll(c cli.Command) {
     if dispatch == "fail" {
       fmt.Println("roll stopped")
       os.Exit(1)
+    }
+
+    renew, _, err := session.Renew(session_id, nil)
+    if err != nil {
+      fmt.Println("err: ", err)
+      os.Exit(1)
+    }
+
+    if renew == nil {
+       fmt.Println("session renewal failed")
     }
   }
 }
