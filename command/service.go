@@ -3,6 +3,8 @@ package command
 import (
   "fmt"
   "os"
+  "sort"
+  "strings"
 
   "github.com/jwaldrip/odin/cli"
   "github.com/hashicorp/consul/api"
@@ -12,6 +14,8 @@ var Service = cli.NewSubCommand("service", "Service operations", serviceRun)
 
 func init() {
   Service.DefineParams("action")
+  Service.DefineStringFlag("type", "", "filter by type")
+  Service.AliasFlag('t', "type")
   Service.SetLongDescription(`
 Interact with cascade services
 
@@ -45,8 +49,16 @@ func serviceList(c cli.Command) {
     os.Exit(1)
   }
 
+  sorted := make([]string, 0)
+
   for index,_ := range services {
-    fmt.Println("  -", index)
+    sorted = append(sorted, index)
+  }
+
+  sort.Strings(sorted)
+
+  for _,service := range sorted {
+    fmt.Println("  -", service)
   }
 }
 
@@ -54,7 +66,12 @@ func serviceFind(c cli.Command) {
   client, _ := api.NewClient(api.DefaultConfig())
   catalog := client.Catalog()
 
-  nodes, meta, err := catalog.Service(c.Arg(0).String(), "", nil)
+  if len(c.Args().GetAll()) == 0 {
+    fmt.Println("err: missing <service> argument")
+    os.Exit(1)
+  }
+
+  nodes, meta, err := catalog.Service(c.Arg(0).String(), c.Flag("type").String(), nil)
 
   if err != nil {
     fmt.Println("err: ", err)
@@ -71,5 +88,6 @@ func serviceFind(c cli.Command) {
     fmt.Println("  - host:", node.Node)
     fmt.Println("    address:", node.Address)
     fmt.Println("    port:", node.ServicePort)
+    fmt.Println("    type:", strings.Join(node.ServiceTags, ", "))
   }
 }

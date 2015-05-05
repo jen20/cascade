@@ -125,13 +125,7 @@ func cmRoll(c cli.Command) {
   signal.Notify(ch, os.Interrupt)
   go func(){
     for range ch {
-      if work, _, err := kv.Release(p, nil); err != nil {
-        fmt.Println("err: ", err)
-        os.Exit(1)
-      } else if !work {
-        fmt.Println("failed to release lock")
-        os.Exit(1)
-      }
+      _cmCleanUp(kv, p)
       os.Exit(0)
     }
   }()
@@ -141,6 +135,7 @@ func cmRoll(c cli.Command) {
     dispatch := _cmDispatch(node)
     if dispatch == "fail" {
       fmt.Println("roll stopped")
+      _cmCleanUp(kv, p)
       os.Exit(1)
     }
 
@@ -288,4 +283,14 @@ func _cmNodes(role string) []string {
   }
 
   return result
+}
+
+func _cmCleanUp(kv *api.KV, p *api.KVPair) {
+  if work, _, err := kv.Release(p, nil); err != nil {
+    fmt.Println("err: ", err)
+    os.Exit(1)
+  } else if !work {
+    fmt.Println("failed to release lock")
+    os.Exit(1)
+  }
 }
