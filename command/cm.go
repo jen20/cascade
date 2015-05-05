@@ -6,9 +6,11 @@ import (
   "os"
   "os/signal"
   "time"
+  "sort"
 
   "github.com/jwaldrip/odin/cli"
   "github.com/hashicorp/consul/api"
+  "gopkg.in/yaml.v2"
 )
 
 type CascadeEvent struct {
@@ -71,16 +73,10 @@ func cmLocal(c cli.Command) {
 
 func cmRoll(c cli.Command) {
   client, _ := api.NewClient(api.DefaultConfig())
-  catalog := client.Catalog()
   session := client.Session()
   kv := client.KV()
 
-  nodes, _, err := catalog.Service("cascade", c.Flag("role").String(), nil)
-
-  if err != nil {
-    fmt.Println("err: ", err)
-    os.Exit(1)
-  }
+  nodes := _cmNodes(c.Flag("role").String())
 
   se := &api.SessionEntry{
     Name: "cascade",
@@ -142,7 +138,7 @@ func cmRoll(c cli.Command) {
 
   fmt.Printf("Rolling (%v) nodes..\n", len(nodes))
   for _,node := range nodes {
-    dispatch := _cmDispatch(node.Node)
+    dispatch := _cmDispatch(node)
     if dispatch == "fail" {
       fmt.Println("roll stopped")
       os.Exit(1)
@@ -233,4 +229,63 @@ func _cmDispatch(host string) string {
 
     time.Sleep(1 * time.Second)
   }
+}
+
+func _cmNodes(role string) []string {
+  client, _ := api.NewClient(api.DefaultConfig())
+  catalog := client.Catalog()
+  kv := client.KV()
+
+  // We have to use arrays to preserve order :(
+  seen := make(map[string]bool)
+  result := make([]string, 0)
+
+  nodes, _, err := catalog.Service("cascade", role, nil)
+
+  if err != nil {
+    fmt.Println("err: ", err)
+    os.Exit(1)
+  }
+
+  pair, _, err := kv.Get("cascade/run_order", nil)
+  
+  if err != nil {
+    fmt.Println("err: ", err)
+    os.Exit(1)
+  }
+  
+  if pair == nil {
+    for _,node := range nodes {
+      result = append(result, node.Node)
+    }
+
+    sort.Strings(result)
+  } else {
+    roles := make([]string, 0)
+
+    err = yaml.Unmarshal([]byte(pair.Value), &roles)
+    if err != nil {
+      fmt.Println("err: ", err)
+      os.Exit(1)
+    }
+
+    // TODO fix it, this is gross
+    for _,role := range roles {
+      tmp := make([]string, 0)
+
+      for _,node := range nodes {
+        for _,nodeRole := range node.ServiceTags {
+          if role == nodeRole && !seen[node.Node] {
+            seen[node.Node] = true
+            tmp = append(tmp, node.Node)
+          }
+        }
+      }
+
+      sort.Strings(tmp)
+      result = append(result, tmp...)
+    }
+  }
+
+  return result
 }
