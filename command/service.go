@@ -67,7 +67,7 @@ func serviceFind(c cli.Command) {
   catalog := client.Catalog()
 
   if len(c.Args().GetAll()) == 0 {
-    fmt.Println("err: missing <service> argument")
+    fmt.Println("err: missing <servicename> argument")
     os.Exit(1)
   }
 
