@@ -21,6 +21,7 @@ Interact with cascade services
 
 Actions:
   list - list registered services
+  local - list services on current node
   find <servicename> - list nodes with service
   `)
 }
@@ -28,6 +29,7 @@ Actions:
 func serviceRun(c cli.Command) {
   switch c.Param("action").String() {
   case "list": serviceList(c)
+  case "local": serviceLocal(c)
   case "find": serviceFind(c)
   default: cli.ShowUsage(c)
   }
@@ -62,6 +64,46 @@ func serviceList(c cli.Command) {
   }
 }
 
+func serviceLocal(c cli.Command) {
+  client, _ := api.NewClient(api.DefaultConfig())
+  agent := client.Agent()
+
+  services, err := agent.Services()
+
+  if err != nil {
+    fmt.Println("err: ", err)
+    os.Exit(1)
+  }
+
+  if err != nil {
+    fmt.Println("err: ", err)
+    os.Exit(1)
+  }
+
+  // sigh
+  sorted := make([]string, 0)
+  seen := make(map[string]bool)
+
+  for _, service := range services {
+    if !seen[service.Service] && service.Service != "cascade" {
+      sorted = append(sorted, service.Service)
+      seen[service.Service] = true
+    }
+  }
+
+  sort.Strings(sorted)
+
+  for _, service := range sorted {
+    fmt.Println(service + ":")
+    for _, st := range services {
+      if st.Service == service {
+        fmt.Println("  - port:", st.Port)
+        fmt.Println("    tags:", strings.Join(st.Tags, ", "))
+      }
+    } 
+  }
+}
+
 func serviceFind(c cli.Command) {
   client, _ := api.NewClient(api.DefaultConfig())
   catalog := client.Catalog()
@@ -88,6 +130,6 @@ func serviceFind(c cli.Command) {
     fmt.Println("  - host:", node.Node)
     fmt.Println("    address:", node.Address)
     fmt.Println("    port:", node.ServicePort)
-    fmt.Println("    type:", strings.Join(node.ServiceTags, ", "))
+    fmt.Println("    tags:", strings.Join(node.ServiceTags, ", "))
   }
 }
