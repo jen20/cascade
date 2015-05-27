@@ -85,20 +85,10 @@ func NewRoll(role string) (*Roll, error) {
     return nil, err
   }
 
-  // Setup watch
-  watchParams := make(map[string]interface{})
-  watchParams["type"] = "event"
-  watchParams["name"] = "cascade.cm"
-
-  watch, err := watch.Parse(watchParams)
-  if err != nil {
-    return nil, err
-  }
-
   // Setup channel
   msg := make(chan string, 3)
 
-  return &Roll{nodes, msg, client, session, kv, event, sessionID, pair, watch, ""}, nil
+  return &Roll{nodes, msg, client, session, kv, event, sessionID, pair, nil, ""}, nil
 }
 
 func (r *Roll) Roll() error {
@@ -130,6 +120,18 @@ func  (r *Roll) Dispatch(host string) error {
   params := &api.UserEvent{Name: "cascade.cm", Payload: payload, NodeFilter: host}
   
   var errExit error
+
+  // Setup watch
+  watchParams := make(map[string]interface{})
+  watchParams["type"] = "event"
+  watchParams["name"] = "cascade.cm"
+
+  watch, err := watch.Parse(watchParams)
+  if err != nil {
+    return err
+  }
+
+  r.watch = watch
 
   // Set handler
   r.watch.Handler = func(idx uint64, data interface{}) {
