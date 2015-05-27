@@ -6,7 +6,8 @@ import (
   "fmt"
   "os"
   "sort"
-
+  "time"
+  
   "github.com/hashicorp/consul/api"
   "github.com/hashicorp/consul/watch"
   "gopkg.in/yaml.v2"
