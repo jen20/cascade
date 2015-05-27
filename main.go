@@ -1,7 +1,6 @@
 package main
 
 import (
-  //"gopkg.in/yaml.v2"
   "github.com/jwaldrip/odin/cli"
   "github.com/boundary/cascade/command"
 )

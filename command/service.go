@@ -113,15 +113,10 @@ func serviceFind(c cli.Command) {
     os.Exit(1)
   }
 
-  nodes, meta, err := catalog.Service(c.Arg(0).String(), c.Flag("type").String(), nil)
+  nodes, _, err := catalog.Service(c.Arg(0).String(), c.Flag("type").String(), nil)
 
   if err != nil {
     fmt.Println("err: ", err)
-    os.Exit(1)
-  }
-
-  if meta.LastIndex == 0 {
-    fmt.Println("Bad: ", meta)
     os.Exit(1)
   }
 
