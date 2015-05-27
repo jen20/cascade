@@ -96,6 +96,9 @@ func (r *Roll) Roll() error {
     
     // roll the thing
     err := r.Dispatch(node)
+    // hack for now (debug possible event dedup, watch exec race)
+    time.Sleep(1 * time.Second)
+
     if err != nil {
       return err
     }
