@@ -200,6 +200,7 @@ func GetNodes(role string) ([]string, error) {
   client, _ := api.NewClient(api.DefaultConfig())
   catalog := client.Catalog()
   kv := client.KV()
+  var err error
 
   // We have to use arrays to preserve order :(
   seen := make(map[string]bool)
@@ -249,5 +250,10 @@ func GetNodes(role string) ([]string, error) {
     }
   }
 
-  return result, nil
+  if len(result) == 0 {
+    err = errors.New(fmt.Sprintf("err: no nodes matching role: %s found", role))
+
+  }
+
+  return result, err
 }
