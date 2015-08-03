@@ -1,6 +1,7 @@
 TODO
 ====
 
+- Filter node repsonses, remove sleep hack
 - Documentation
 - Tests
 - Deployment diagram
