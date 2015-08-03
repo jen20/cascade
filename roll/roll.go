@@ -1,259 +1,259 @@
 package roll
 
 import (
-  "encoding/json"
-  "errors"
-  "fmt"
-  "os"
-  "sort"
-  "time"
-  
-  "github.com/hashicorp/consul/api"
-  "github.com/hashicorp/consul/watch"
-  "gopkg.in/yaml.v2"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"sort"
+	"time"
+
+	"github.com/hashicorp/consul/api"
+	"github.com/hashicorp/consul/watch"
+	"gopkg.in/yaml.v2"
 )
 
 const (
-  RollKey = "cascade/roll"
-  RunOrderKey = "cascade/run_order"
-  ConsulHost = "127.0.0.1:8500"
+	RollKey     = "cascade/roll"
+	RunOrderKey = "cascade/run_order"
+	ConsulHost  = "127.0.0.1:8500"
 )
 
 type CascadeEvent struct {
-  Source string `json:"source"`
-  Msg string `json:"msg"`
-  Ref string `json:"ref"`
+	Source string `json:"source"`
+	Msg    string `json:"msg"`
+	Ref    string `json:"ref"`
 }
 
 type Roll struct {
-  Nodes []string
-  Msg chan string
+	Nodes []string
+	Msg   chan string
 
-  client *api.Client
-  session *api.Session
-  kv *api.KV
-  event *api.Event
+	client  *api.Client
+	session *api.Session
+	kv      *api.KV
+	event   *api.Event
 
-  sessionID string
+	sessionID string
 
-  pair *api.KVPair
-  watch *watch.WatchPlan
-  curID string
+	pair  *api.KVPair
+	watch *watch.WatchPlan
+	curID string
 }
 
-func NewRoll(role string) (*Roll, error) { 
-  client, _ := api.NewClient(api.DefaultConfig())
-  session := client.Session()
-  kv := client.KV()
-  event := client.Event()
+func NewRoll(role string) (*Roll, error) {
+	client, _ := api.NewClient(api.DefaultConfig())
+	session := client.Session()
+	kv := client.KV()
+	event := client.Event()
 
-  user := os.Getenv("USER")
+	user := os.Getenv("USER")
 
-  if user == "root" && os.Getenv("SUDO_USER") != "" {
-    user = os.Getenv("SUDO_USER")
-  }
+	if user == "root" && os.Getenv("SUDO_USER") != "" {
+		user = os.Getenv("SUDO_USER")
+	}
 
-  se := &api.SessionEntry{
-    Name: "cascade",
-    TTL: "250s",
-    Behavior: api.SessionBehaviorDelete,
-  }
+	se := &api.SessionEntry{
+		Name:     "cascade",
+		TTL:      "250s",
+		Behavior: api.SessionBehaviorDelete,
+	}
 
-  sessionID, _, err := session.Create(se, nil)
-  if err != nil {
-    return nil, err
-  }
-  
-  value := []byte(user)
-  pair := &api.KVPair{Key: "cascade/roll", Value: value, Session: sessionID}
-  if work, _, err := kv.Acquire(pair, nil); err != nil {
-    return nil, err  
-  } else if !work { 
-    pair, _, err := kv.Get(RollKey, nil)
-    if err != nil {
-      return nil, err
-    }
-    
-    if pair != nil {
-      return nil, errors.New(fmt.Sprintf("err: failed to obtain lock: %s has the lock", string(pair.Value[:])))
-    } else {
-      return nil, errors.New("err: possibly a stale lock, try again shortly")
-    }
-  }
+	sessionID, _, err := session.Create(se, nil)
+	if err != nil {
+		return nil, err
+	}
 
-  nodes, err := GetNodes(role)
-  if err != nil {
-    return nil, err
-  }
+	value := []byte(user)
+	pair := &api.KVPair{Key: "cascade/roll", Value: value, Session: sessionID}
+	if work, _, err := kv.Acquire(pair, nil); err != nil {
+		return nil, err
+	} else if !work {
+		pair, _, err := kv.Get(RollKey, nil)
+		if err != nil {
+			return nil, err
+		}
 
-  // Setup channel
-  msg := make(chan string, 3)
+		if pair != nil {
+			return nil, errors.New(fmt.Sprintf("err: failed to obtain lock: %s has the lock", string(pair.Value[:])))
+		} else {
+			return nil, errors.New("err: possibly a stale lock, try again shortly")
+		}
+	}
 
-  return &Roll{nodes, msg, client, session, kv, event, sessionID, pair, nil, ""}, nil
+	nodes, err := GetNodes(role)
+	if err != nil {
+		return nil, err
+	}
+
+	// Setup channel
+	msg := make(chan string, 3)
+
+	return &Roll{nodes, msg, client, session, kv, event, sessionID, pair, nil, ""}, nil
 }
 
 func (r *Roll) Roll() error {
-  for _, node := range r.Nodes {
-    
-    // roll the thing
-    err := r.Dispatch(node)
-    // hack for now (debug possible event dedup, watch exec race)
-    time.Sleep(1 * time.Second)
+	for _, node := range r.Nodes {
 
-    if err != nil {
-      return err
-    }
+		// roll the thing
+		err := r.Dispatch(node)
+		// hack for now (debug possible event dedup, watch exec race)
+		time.Sleep(1 * time.Second)
 
-    renew, _, err := r.session.Renew(r.sessionID, nil)
-    if err != nil {
-      return err      
-    }
+		if err != nil {
+			return err
+		}
 
-    if renew == nil {
-      return errors.New("err: session renewal failed")
-    }
-  }
+		renew, _, err := r.session.Renew(r.sessionID, nil)
+		if err != nil {
+			return err
+		}
 
-  return nil
+		if renew == nil {
+			return errors.New("err: session renewal failed")
+		}
+	}
+
+	return nil
 }
 
-func  (r *Roll) Dispatch(host string) error {
-  // Setup event
-  cascadeEvent := CascadeEvent{"cascade cli", "run", ""}
-  payload, _ := json.Marshal(cascadeEvent)
-  params := &api.UserEvent{Name: "cascade.cm", Payload: payload, NodeFilter: host}
-  
-  var errExit error
+func (r *Roll) Dispatch(host string) error {
+	// Setup event
+	cascadeEvent := CascadeEvent{"cascade cli", "run", ""}
+	payload, _ := json.Marshal(cascadeEvent)
+	params := &api.UserEvent{Name: "cascade.cm", Payload: payload, NodeFilter: host}
 
-  // Setup watch
-  watchParams := make(map[string]interface{})
-  watchParams["type"] = "event"
-  watchParams["name"] = "cascade.cm"
+	var errExit error
 
-  watch, err := watch.Parse(watchParams)
-  if err != nil {
-    return err
-  }
+	// Setup watch
+	watchParams := make(map[string]interface{})
+	watchParams["type"] = "event"
+	watchParams["name"] = "cascade.cm"
 
-  r.watch = watch
+	watch, err := watch.Parse(watchParams)
+	if err != nil {
+		return err
+	}
 
-  // Set handler
-  r.watch.Handler = func(idx uint64, data interface{}) {
-    events := data.([]*api.UserEvent)
-    
-    for _, event := range events {
-      var e CascadeEvent
-      err := json.Unmarshal(event.Payload, &e)
+	r.watch = watch
 
-      if err != nil {
-        fmt.Println("err: ", err)
-      }
+	// Set handler
+	r.watch.Handler = func(idx uint64, data interface{}) {
+		events := data.([]*api.UserEvent)
 
-      if e.Ref == r.curID {
-        r.Msg <- e.Msg
+		for _, event := range events {
+			var e CascadeEvent
+			err := json.Unmarshal(event.Payload, &e)
 
-        if e.Msg == "success" || e.Msg == "fail" {
-          r.watch.Stop()
+			if err != nil {
+				fmt.Println("err: ", err)
+			}
 
-          if e.Msg == "fail" {
-            errExit = errors.New("err: failure roll stopped")
-          }
-        }
-      }
-    }
-  }
+			if e.Ref == r.curID {
+				r.Msg <- e.Msg
 
-  // Fire event
-  id, _, err := r.event.Fire(params, nil)
-  
-  r.curID = id
+				if e.Msg == "success" || e.Msg == "fail" {
+					r.watch.Stop()
 
-  if err != nil {
-    return err
-  }
+					if e.Msg == "fail" {
+						errExit = errors.New("err: failure roll stopped")
+					}
+				}
+			}
+		}
+	}
 
-  // Send the host we are watching for
-  r.Msg <- host
+	// Fire event
+	id, _, err := r.event.Fire(params, nil)
 
-  // Execute Watch
-  if err := r.watch.Run(ConsulHost); err != nil {
-    return errors.New(fmt.Sprintf("err: querying Consul agent: %s", err))
-  }
+	r.curID = id
 
-  return errExit
+	if err != nil {
+		return err
+	}
+
+	// Send the host we are watching for
+	r.Msg <- host
+
+	// Execute Watch
+	if err := r.watch.Run(ConsulHost); err != nil {
+		return errors.New(fmt.Sprintf("err: querying Consul agent: %s", err))
+	}
+
+	return errExit
 }
 
 func (r *Roll) Destroy() error {
-  r.watch.Stop()
+	r.watch.Stop()
 
-  if work, _, err := r.kv.Release(r.pair, nil); err != nil {
-    return err
-  } else if !work {
-    return errors.New("err: failed to release lock")
-  }
-  r.session.Destroy(r.sessionID, nil)
+	if work, _, err := r.kv.Release(r.pair, nil); err != nil {
+		return err
+	} else if !work {
+		return errors.New("err: failed to release lock")
+	}
+	r.session.Destroy(r.sessionID, nil)
 
-  return nil
+	return nil
 }
 
 func GetNodes(role string) ([]string, error) {
-  client, _ := api.NewClient(api.DefaultConfig())
-  catalog := client.Catalog()
-  kv := client.KV()
-  var err error
+	client, _ := api.NewClient(api.DefaultConfig())
+	catalog := client.Catalog()
+	kv := client.KV()
+	var err error
 
-  // We have to use arrays to preserve order :(
-  seen := make(map[string]bool)
-  result := make([]string, 0)
+	// We have to use arrays to preserve order :(
+	seen := make(map[string]bool)
+	result := make([]string, 0)
 
-  nodes, _, err := catalog.Service("cascade", role, nil)
+	nodes, _, err := catalog.Service("cascade", role, nil)
 
-  if err != nil {
-    return nil, err
-  }
+	if err != nil {
+		return nil, err
+	}
 
-  pair, _, err := kv.Get(RunOrderKey, nil)
-  
-  if err != nil {
-    return nil, err
-  }
-  
-  if pair == nil {
-    for _,node := range nodes {
-      result = append(result, node.Node)
-    }
+	pair, _, err := kv.Get(RunOrderKey, nil)
 
-    sort.Strings(result)
-  } else {
-    roles := make([]string, 0)
+	if err != nil {
+		return nil, err
+	}
 
-    err = yaml.Unmarshal([]byte(pair.Value), &roles)
-    if err != nil {
-      return nil, err
-    }
+	if pair == nil {
+		for _, node := range nodes {
+			result = append(result, node.Node)
+		}
 
-    // TODO this is gross
-    for _, role := range roles {
-      tmp := make([]string, 0)
+		sort.Strings(result)
+	} else {
+		roles := make([]string, 0)
 
-      for _,node := range nodes {
-        for _,nodeRole := range node.ServiceTags {
-          if role == nodeRole && !seen[node.Node] {
-            seen[node.Node] = true
-            tmp = append(tmp, node.Node)
-          }
-        }
-      }
+		err = yaml.Unmarshal([]byte(pair.Value), &roles)
+		if err != nil {
+			return nil, err
+		}
 
-      sort.Strings(tmp)
-      result = append(result, tmp...)
-    }
-  }
+		// TODO this is gross
+		for _, role := range roles {
+			tmp := make([]string, 0)
 
-  if len(result) == 0 {
-    err = errors.New(fmt.Sprintf("err: no nodes matching role: %s found", role))
+			for _, node := range nodes {
+				for _, nodeRole := range node.ServiceTags {
+					if role == nodeRole && !seen[node.Node] {
+						seen[node.Node] = true
+						tmp = append(tmp, node.Node)
+					}
+				}
+			}
 
-  }
+			sort.Strings(tmp)
+			result = append(result, tmp...)
+		}
+	}
 
-  return result, err
+	if len(result) == 0 {
+		err = errors.New(fmt.Sprintf("err: no nodes matching role: %s found", role))
+
+	}
+
+	return result, err
 }

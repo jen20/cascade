@@ -1,21 +1,21 @@
 package command
 
 import (
-  "fmt"
-  "os"
+	"fmt"
+	"log"
 
-  "github.com/jwaldrip/odin/cli"
-  "github.com/hashicorp/consul/api"
+	"github.com/hashicorp/consul/api"
+	"github.com/jwaldrip/odin/cli"
 )
 
 var Node = cli.NewSubCommand("node", "Node operations", nodeRun)
 
 func init() {
-  Node.DefineParams("action")
-  Node.DefineStringFlag("role", "", "filter by role")
-  Node.AliasFlag('r', "role")
+	Node.DefineParams("action")
+	Node.DefineStringFlag("role", "", "filter by role")
+	Node.AliasFlag('r', "role")
 
-  Node.SetLongDescription(`
+	Node.SetLongDescription(`
 Interact with cascade nodes
 
 Actions:
@@ -24,27 +24,28 @@ Actions:
 }
 
 func nodeRun(c cli.Command) {
-  switch c.Param("action").String() {
-    case "list": nodeList(c)
-    default: cli.ShowUsage(c)
-  }
+	switch c.Param("action").String() {
+	case "list":
+		nodeList(c)
+	default:
+		cli.ShowUsage(c)
+	}
 }
 
 func nodeList(c cli.Command) {
-  client, _ := api.NewClient(api.DefaultConfig())
-  catalog := client.Catalog()
+	client, _ := api.NewClient(api.DefaultConfig())
+	catalog := client.Catalog()
 
-  nodes, _, err := catalog.Service("cascade", c.Flag("role").String(), nil)
+	nodes, _, err := catalog.Service("cascade", c.Flag("role").String(), nil)
 
-  if err != nil {
-    fmt.Println("err: ", err)
-    os.Exit(1)
-  }
+	if err != nil {
+		log.Fatalln("Err: ", err)
+	}
 
-  for _, node := range nodes {
-    fmt.Println(node.Node, node.Address + ":")
-    for _,role := range node.ServiceTags {
-      fmt.Println("  -", role)
-    }
-  }
+	for _, node := range nodes {
+		fmt.Println(node.Node, node.Address+":")
+		for _, role := range node.ServiceTags {
+			fmt.Println("  -", role)
+		}
+	}
 }
