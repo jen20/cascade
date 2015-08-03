@@ -6,7 +6,7 @@ all: cascade deb
 
 clean:
 	rm -rf cascade
-	ls -t ./pkg/*.deb | sed -e '1,$(KEEP)d' | xargs -n1 '\n' rm -rf
+	ls -t ./pkg/*.deb | sed -e '1,$(KEEP)d' | xargs -d '\n' rm -rf
 	rm -rf ./build
 
 cascade: clean
