@@ -138,7 +138,8 @@ func (r *Roll) Dispatch(host string) error {
 	// Setup event
 	cascadeEvent := CascadeEvent{"cascade cli", "run", ""}
 	payload, _ := json.Marshal(cascadeEvent)
-	params := &api.UserEvent{Name: "cascade.cm", Payload: payload, NodeFilter: host}
+	nodeFilter := fmt.Sprintf("$%s", host)
+	params := &api.UserEvent{Name: "cascade.cm", Payload: payload, NodeFilter: nodeFilter}
 
 	var errExit error
 
