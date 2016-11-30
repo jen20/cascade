@@ -36,6 +36,9 @@ func init() {
 	Cm.DefineStringFlag("role", "", "filter by role")
 	Cm.AliasFlag('r', "role")
 
+	Cm.DefineBoolFlag("force", false, "perform `roll` operation even if no `role` filter is set")
+	Cm.AliasFlag('f', "force")
+
 	Cm.SetLongDescription(`
 Run CM on member systems
 
@@ -82,7 +85,12 @@ func cmLocal(c cli.Command) {
 }
 
 func cmRoll(c cli.Command) {
-	cmRunRoll(c.Flag("role").String(), "")
+	role := c.Flag("role").String()
+	if (len(role) == 0 && c.Flag("force").Get() != true) {
+		log.Fatalln("Must specify -f option to run with no `role` filter specified")
+	} else {
+		cmRunRoll(role, "")
+	}
 }
 
 func cmSingle(c cli.Command) {
