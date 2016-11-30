@@ -23,6 +23,7 @@ import (
 
 	"github.com/hashicorp/consul/api"
 	"github.com/jwaldrip/odin/cli"
+	"github.com/hashicorp/consul/lib"
 )
 
 var Role = cli.NewSubCommand("role", "Role operations", roleRun)
@@ -36,7 +37,8 @@ Interact with cascade roles
 Actions:
   list - list local roles
   listAll - list all nodes and roles
-  set <roles> - set local roles
+  set <roles> - set local roles (replaces current)
+  append <roles> - append roles to local set
   `)
 }
 
@@ -48,10 +50,13 @@ func roleRun(c cli.Command) {
 		roleSet(c)
 	case "listAll":
 		roleListAll(c)
+	case "append":
+		roleAppend(c)
 	default:
 		cli.ShowUsage(c)
 	}
 }
+
 func roleListAll(_ cli.Command) {
 
 	roles, err := allNodeRoles()
@@ -60,37 +65,35 @@ func roleListAll(_ cli.Command) {
 	}
 
 	for k, v := range roles {
-		printRole(k,v)
+		printRole(k, v)
 	}
 }
 
 func roleList(_ cli.Command) {
-	client, _ := api.NewClient(api.DefaultConfig())
-	agent := client.Agent()
-
-	self, err := agent.Self()
-
-	if err != nil {
-		log.Fatalln("err: ", err)
-	}
 
 	nodeRoles, err := allNodeRoles()
 	if err != nil {
 		log.Fatalln("err: ", err)
 	}
 
-	myKey := makeKey(self["Config"]["NodeName"].(string), self["Config"]["AdvertiseAddr"].(string))
+	myKey, err := selfKey()
+	if err != nil {
+		log.Fatalln("err: ", err)
+	}
 	printRole(myKey, nodeRoles[myKey])
-
 }
 
 func roleSet(c cli.Command) {
+	roleActualSet(c.Args().Strings(), c)
+}
+
+func roleActualSet(roles []string, c cli.Command) {
 	client, _ := api.NewClient(api.DefaultConfig())
 	agent := client.Agent()
 
 	reg := &api.AgentServiceRegistration{
 		Name: "cascade",
-		Tags: c.Args().Strings(),
+		Tags: roles,
 	}
 
 	if err := agent.ServiceRegister(reg); err != nil {
@@ -98,6 +101,31 @@ func roleSet(c cli.Command) {
 	}
 
 	roleList(c)
+}
+
+func roleAppend(c cli.Command) {
+	nodeRoles, err := allNodeRoles()
+	if err != nil {
+		log.Fatalln("err: ", err)
+	}
+
+	myKey, err := selfKey()
+	if err != nil {
+		log.Fatalln("err: ", err)
+	}
+
+	var finalSet []string
+	for _, role := range nodeRoles[myKey] {
+		finalSet = append(finalSet, role)
+	}
+
+	for _, role := range c.Args().Strings() {
+		if !lib.StrContains(finalSet, role) {
+			finalSet = append(finalSet, role)
+		}
+	}
+
+	roleActualSet(finalSet, c)
 }
 
 func allNodeRoles() (map[string][]string, error) {
@@ -113,6 +141,19 @@ func allNodeRoles() (map[string][]string, error) {
 		roleMap[ makeKey(service.Node, service.Address) ] = service.ServiceTags
 	}
 	return roleMap, nil
+}
+
+func selfKey() (string, error) {
+	client, _ := api.NewClient(api.DefaultConfig())
+	agent := client.Agent()
+
+	self, err := agent.Self()
+
+	if err != nil {
+		return "", err
+	}
+
+	return makeKey(self["Config"]["NodeName"].(string), self["Config"]["AdvertiseAddr"].(string)), nil
 }
 
 func makeKey(hostName string, hostAddr string) (string) {
