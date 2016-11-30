@@ -1,4 +1,4 @@
-VERSION="0.2.18"
+VERSION="0.2.19"
 NAME="cascade"
 KEEP=2
 
@@ -6,7 +6,7 @@ all: cascade deb
 
 clean:
 	rm -rf cascade
-	ls -t ./pkg/*.deb | sed -e '1,$(KEEP)d' | xargs -d '\n' rm -rf
+	[ -f ./pkg ] && ls -t ./pkg/*.deb | sed -e '1,$(KEEP)d' | xargs --no-run-if-empty -d "\n" rm -rf || true
 	rm -rf ./build
 
 cascade: clean

@@ -70,6 +70,11 @@ func NewRoll(role string) (*Roll, error) {
 		user = os.Getenv("SUDO_USER")
 	}
 
+	nodes, err := GetNodes(role)
+	if err != nil {
+		return nil, err
+	}
+
 	se := &api.SessionEntry{
 		Name:     "cascade",
 		TTL:      "250s",
@@ -96,11 +101,6 @@ func NewRoll(role string) (*Roll, error) {
 		} else {
 			return nil, errors.New("err: possibly a stale lock, try again shortly")
 		}
-	}
-
-	nodes, err := GetNodes(role)
-	if err != nil {
-		return nil, err
 	}
 
 	// Setup channel
