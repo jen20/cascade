@@ -33,9 +33,10 @@ func init() {
 	Role.SetLongDescription(`
 Interact with cascade roles
 
-Actions (current node only):
-  list - list roles
-  set <roles> - set roles
+Actions:
+  list - list local roles
+  listAll - list all nodes and roles
+  set <roles> - set local roles
   `)
 }
 
@@ -45,20 +46,27 @@ func roleRun(c cli.Command) {
 		roleList(c)
 	case "set":
 		roleSet(c)
+	case "listAll":
+		roleListAll(c)
 	default:
 		cli.ShowUsage(c)
 	}
 }
+func roleListAll(_ cli.Command) {
 
-func roleList(c cli.Command) {
-	client, _ := api.NewClient(api.DefaultConfig())
-	agent := client.Agent()
-
-	services, err := agent.Services()
-
+	roles, err := allNodeRoles()
 	if err != nil {
 		log.Fatalln("err: ", err)
 	}
+
+	for k, v := range roles {
+		printRole(k,v)
+	}
+}
+
+func roleList(_ cli.Command) {
+	client, _ := api.NewClient(api.DefaultConfig())
+	agent := client.Agent()
 
 	self, err := agent.Self()
 
@@ -66,14 +74,14 @@ func roleList(c cli.Command) {
 		log.Fatalln("err: ", err)
 	}
 
-	for _, service := range services {
-		if service.Service == "cascade" {
-			fmt.Println(self["Config"]["NodeName"], self["Config"]["AdvertiseAddr"].(string)+":")
-			for _, role := range service.Tags {
-				fmt.Println("  -", role)
-			}
-		}
+	nodeRoles, err := allNodeRoles()
+	if err != nil {
+		log.Fatalln("err: ", err)
 	}
+
+	myKey := makeKey(self["Config"]["NodeName"].(string), self["Config"]["AdvertiseAddr"].(string))
+	printRole(myKey, nodeRoles[myKey])
+
 }
 
 func roleSet(c cli.Command) {
@@ -90,4 +98,30 @@ func roleSet(c cli.Command) {
 	}
 
 	roleList(c)
+}
+
+func allNodeRoles() (map[string][]string, error) {
+	roleMap := make(map[string][]string)
+	client, _ := api.NewClient(api.DefaultConfig())
+	catalog := client.Catalog()
+	cascadeServices, _, err := catalog.Service("cascade", "", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, service := range cascadeServices {
+		roleMap[ makeKey(service.Node, service.Address) ] = service.ServiceTags
+	}
+	return roleMap, nil
+}
+
+func makeKey(hostName string, hostAddr string) (string) {
+	return fmt.Sprintf("%s (%s)", hostName, hostAddr)
+}
+
+func printRole(key string, roles []string) {
+	fmt.Println(key + ":")
+	for _, role := range roles {
+		fmt.Println("  -", role)
+	}
 }
