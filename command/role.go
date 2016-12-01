@@ -39,6 +39,7 @@ Actions:
   find <role> - list nodes with role
   set <roles> - set local roles (replaces current)
   append <roles> - append roles to local set
+  rm <roles> - remove roles from local set
   `)
 }
 
@@ -54,6 +55,8 @@ func roleRun(c cli.Command) {
 		roleFind(c)
 	case "append":
 		roleAppend(c)
+	case "rm":
+		roleRm(c)
 	default:
 		cli.ShowUsage(c)
 	}
@@ -152,6 +155,34 @@ func roleAppend(c cli.Command) {
 
 	roleActualSet(finalSet, c)
 }
+
+func roleRm(c cli.Command) {
+	rmRoles := c.Args().Strings()
+	if (len(rmRoles) == 0) {
+		log.Fatalln("Must specify some role[s] to remove")
+	}
+
+	nodeRoles, err := allNodeRoles()
+	if err != nil {
+		log.Fatalln("err: ", err)
+	}
+
+	myKey, err := selfKey()
+	if err != nil {
+		log.Fatalln("err: ", err)
+	}
+
+	var finalSet []string
+	for _, role := range nodeRoles[myKey] {
+		if (!StrContains(rmRoles, role)) {
+			finalSet = append(finalSet, role)
+		} else {
+			fmt.Printf("removing role `%s`\n", role)
+		}
+	}
+	roleActualSet(finalSet, c)
+}
+
 
 func allNodeRoles() (map[string][]string, error) {
 	roleMap := make(map[string][]string)
