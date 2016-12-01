@@ -37,6 +37,7 @@ Interact with cascade roles
 Actions:
   list - list local roles
   listAll - list all nodes and roles
+  find <role> - list nodes with role
   set <roles> - set local roles (replaces current)
   append <roles> - append roles to local set
   `)
@@ -50,6 +51,8 @@ func roleRun(c cli.Command) {
 		roleSet(c)
 	case "listAll":
 		roleListAll(c)
+	case "find":
+		roleFind(c)
 	case "append":
 		roleAppend(c)
 	default:
@@ -81,6 +84,29 @@ func roleList(_ cli.Command) {
 		log.Fatalln("err: ", err)
 	}
 	printRole(myKey, nodeRoles[myKey])
+}
+
+func roleFind(c cli.Command) {
+	cmdRoles := c.Args().Strings()
+	if len(cmdRoles) == 0 {
+		log.Fatalln("Must specify a role to find")
+	}
+	if len(cmdRoles) != 1 {
+		// maybe we could support multiple but i don't think it's necessary
+		log.Fatalln("One role only is supported for `find` command")
+	}
+	role := cmdRoles[0]
+	allRoles, err := allNodeRoles()
+	if err != nil {
+		log.Fatalln("err: ", err)
+	}
+
+	fmt.Printf("All nodes containing role %s:\n\n", role)
+	for node, r := range allRoles {
+		if lib.StrContains(r, role) {
+			printRole(node, r)
+		}
+	}
 }
 
 func roleSet(c cli.Command) {
