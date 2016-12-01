@@ -23,7 +23,6 @@ import (
 
 	"github.com/hashicorp/consul/api"
 	"github.com/jwaldrip/odin/cli"
-	"github.com/hashicorp/consul/lib"
 )
 
 var Role = cli.NewSubCommand("role", "Role operations", roleRun)
@@ -103,7 +102,7 @@ func roleFind(c cli.Command) {
 
 	fmt.Printf("All nodes containing role %s:\n\n", role)
 	for node, r := range allRoles {
-		if lib.StrContains(r, role) {
+		if StrContains(r, role) {
 			printRole(node, r)
 		}
 	}
@@ -146,7 +145,7 @@ func roleAppend(c cli.Command) {
 	}
 
 	for _, role := range c.Args().Strings() {
-		if !lib.StrContains(finalSet, role) {
+		if !StrContains(finalSet, role) {
 			finalSet = append(finalSet, role)
 		}
 	}
@@ -191,4 +190,14 @@ func printRole(key string, roles []string) {
 	for _, role := range roles {
 		fmt.Println("  -", role)
 	}
+}
+
+// StrContains checks if a list contains a string
+func StrContains(l []string, s string) bool {
+	for _, v := range l {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
