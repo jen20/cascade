@@ -10,9 +10,6 @@ clean:
 	rm -rf ./build
 
 cascade: clean
-	go get github.com/jwaldrip/odin/cli
-	go get github.com/hashicorp/consul/api
-	go get gopkg.in/yaml.v2
 	go build
 
 deb: cascade

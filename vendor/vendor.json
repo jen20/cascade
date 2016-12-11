@@ -1,0 +1,63 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "afIrW7SV91p/JnXuveuKrdv8q9I=",
+			"path": "github.com/boundary/cascade/command",
+			"revision": "686df34b454dc0cb95f3a91e2b625151ce7b87c2",
+			"revisionTime": "2016-12-01T19:57:49Z"
+		},
+		{
+			"checksumSHA1": "nGCtGKsr+RuH/sevFzTLLU7C82o=",
+			"path": "github.com/boundary/cascade/roll",
+			"revision": "686df34b454dc0cb95f3a91e2b625151ce7b87c2",
+			"revisionTime": "2016-12-01T19:57:49Z"
+		},
+		{
+			"checksumSHA1": "FXiaccMs+1NvIHh8W44lQJeGqms=",
+			"path": "github.com/hashicorp/consul/api",
+			"revision": "406a8682775a4f4fb2c3eb96c5ffdbd851d1b367",
+			"revisionTime": "2016-12-07T19:56:59Z"
+		},
+		{
+			"checksumSHA1": "q89jRx07XZrhCUmir1lp94/cD2k=",
+			"path": "github.com/hashicorp/consul/watch",
+			"revision": "406a8682775a4f4fb2c3eb96c5ffdbd851d1b367",
+			"revisionTime": "2016-12-07T19:56:59Z"
+		},
+		{
+			"checksumSHA1": "Uzyon2091lmwacNsl1hCytjhHtg=",
+			"origin": "github.com/hashicorp/consul/vendor/github.com/hashicorp/go-cleanhttp",
+			"path": "github.com/hashicorp/go-cleanhttp",
+			"revision": "406a8682775a4f4fb2c3eb96c5ffdbd851d1b367",
+			"revisionTime": "2016-12-07T19:56:59Z"
+		},
+		{
+			"checksumSHA1": "E3Xcanc9ouQwL+CZGOUyA/+giLg=",
+			"origin": "github.com/hashicorp/consul/vendor/github.com/hashicorp/serf/coordinate",
+			"path": "github.com/hashicorp/serf/coordinate",
+			"revision": "406a8682775a4f4fb2c3eb96c5ffdbd851d1b367",
+			"revisionTime": "2016-12-07T19:56:59Z"
+		},
+		{
+			"checksumSHA1": "McgkNnowambTauyuNKIGnef6z0A=",
+			"path": "github.com/jwaldrip/odin/cli",
+			"revision": "1ff1e7d0da9ed4a829143e6ea0611ac567844647",
+			"revisionTime": "2016-08-15T15:34:39Z"
+		},
+		{
+			"checksumSHA1": "8GtpjVN1j9xtyFV3QzSxfP6utNA=",
+			"path": "github.com/jwaldrip/odin/cli/values",
+			"revision": "1ff1e7d0da9ed4a829143e6ea0611ac567844647",
+			"revisionTime": "2016-08-15T15:34:39Z"
+		},
+		{
+			"checksumSHA1": "12GqsW8PiRPnezDDy0v4brZrndM=",
+			"path": "gopkg.in/yaml.v2",
+			"revision": "a5b47d31c556af34a302ce5d659e6fea44d90de0",
+			"revisionTime": "2016-09-28T15:37:09Z"
+		}
+	],
+	"rootPath": "github.com/jen20/cascade"
+}
